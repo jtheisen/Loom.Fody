@@ -2,6 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata minClientVersion="2.8">
     <id>Loom.Fody</id>
+    <!-- The real version is configured in appveyor.yml. -->
     <version>1.0.0-alpha-0.1</version>
     <title>Loom.Fody</title>
     <authors>Jens Theisen</authors>
