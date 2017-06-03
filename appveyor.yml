@@ -3,8 +3,8 @@ image: Visual Studio 2017
 before_build:
 - nuget restore
 - git reset --hard
+- change-nuspec-version NuGet\Loom.Fody.nuspec %APPVEYOR_BUILD_VERSION%
 build:
   verbosity: minimal
 after_build:
-- nuget pack NuGet -Version %APPVEYOR_BUILD_VERSION%
-- appveyor PushArtifact Loom.Fody.%APPVEYOR_BUILD_VERSION%.nupkg
+- appveyor PushArtifact NuGetBuild\Loom.Fody.%APPVEYOR_BUILD_VERSION%.nupkg
