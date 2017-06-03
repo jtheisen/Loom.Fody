@@ -17,7 +17,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Loom.Fody\build\</OutputPath>
+    <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -70,4 +70,15 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  
+  <ItemGroup>
+    <Binaries Include="bin\$(Configuration)\*.*" />
+  </ItemGroup>
+  <Target Name="AfterBuild">
+    <Message Text="here" />
+    <Copy  
+      SourceFiles="@(Binaries)"  
+      DestinationFolder="bin\Loom.Fody\build"
+    />  
+  </Target> 
 </Project>
