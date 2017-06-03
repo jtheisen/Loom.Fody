@@ -71,10 +71,10 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   
-  <ItemGroup>
-    <Binaries Include="bin\$(Configuration)\*.*" />
-  </ItemGroup>
   <Target Name="AfterBuild">
+    <ItemGroup>
+      <Binaries Include="bin\$(Configuration)\*.*" />
+    </ItemGroup>
     <Message Text="here" />
     <Copy  
       SourceFiles="@(Binaries)"  
