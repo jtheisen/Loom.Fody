@@ -4,16 +4,16 @@ before_build:
 - nuget restore
 - git reset --hard
 - ps: |
-$path = "NuGet\Loom.Fody.nuspec"
-$version = %APPVEYOR_BUILD_VERSION%
+  $path = "NuGet\Loom.Fody.nuspec"
+  $version = %APPVEYOR_BUILD_VERSION%
 
-$file = Get-Item $path
+  $file = Get-Item $path
 
-$xml = [xml](Get-Content $path)
+  $xml = [xml](Get-Content $path)
 
-$xml.package.metadata.version = $version
+  $xml.package.metadata.version = $version
 
-$xml.Save((Join-Path (pwd) $path))
+  $xml.Save((Join-Path (pwd) $path))
 
 build:
   verbosity: minimal
