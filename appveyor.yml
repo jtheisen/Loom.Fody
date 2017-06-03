@@ -1,10 +1,11 @@
 version: 1.0.0-alpha-b{build}
 image: Visual Studio 2017
 before_build:
+- ps: $env:PACKAGE_VERSION = $APPVEYOR_BUILD_VERSION -replace "-b\d+", "
 - nuget restore
 - git reset --hard
-- powershell ".\change-nuspec-version.ps1 NuGet\Loom.Fody.nuspec %APPVEYOR_BUILD_VERSION%"
+- powershell ".\change-nuspec-version.ps1 NuGet\Loom.Fody.nuspec %PACKAGE_VERSION%"
 build:
   verbosity: minimal
 after_build:
-- appveyor PushArtifact NuGetBuild\Loom.Fody.%APPVEYOR_BUILD_VERSION%.nupkg
+- appveyor PushArtifact NuGetBuild\Loom.Fody.%PACKAGE_VERSION%.nupkg
