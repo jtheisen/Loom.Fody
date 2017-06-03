@@ -1,0 +1,11 @@
+version: 1.0.{build}
+image: Visual Studio 2017
+before_build:
+- echo %APPVEYOR_BUILD_VERSION%
+- nuget restore
+- git reset --hard
+build:
+  verbosity: minimal
+after_build:
+- nuget pack NuGet -Version $(APPVEYOR_BUILD_VERSION)
+- appveyor PushArtifact Loom.Fody.$(APPVEYOR_BUILD_VERSION).nupkg
