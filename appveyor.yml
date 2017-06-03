@@ -4,6 +4,7 @@ before_build:
 - nuget restore
 - git reset --hard
 - ps: sc package_version.txt ($APPVEYOR_BUILD_VERSION -replace "-b\d+", "")
+- ps: echo (gc package_version.txt)
 - powershell ".\change-nuspec-version.ps1 NuGet\Loom.Fody.nuspec (gc package_version.txt)"
 build:
   verbosity: minimal
