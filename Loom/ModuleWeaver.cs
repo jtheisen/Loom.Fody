@@ -27,14 +27,16 @@ public class ModuleWeaver
     {
         var types = ModuleDefinition.GetTypes();
 
-        previousPropertyImplementationIf = types.Single(n => n.Name == "IPreviousPropertyImplementation`2");
+        previousPropertyImplementationIf = types
+            .Where(n => n.Name == "IPreviousPropertyImplementation`2")
+            .Single("Can't find type IPreviousPropertyImplementation`2");
 
-        loomAttributeType = types.Where(t => t.Name == "LoomAttribute").Single();
+        loomAttributeType = types
+            .Where(t => t.Name == "LoomAttribute")
+            .Single("Can't find the LoomAttribute");
 
         foreach (var type in types)
             PotentiallyWeaveType(type);
-        
-        LogInfo("Why do I never see this?");
     }
 
     void PotentiallyWeaveType(TypeDefinition @class)
@@ -257,5 +259,25 @@ public static class Extensions
     {
         foreach (var item in range)
             self.Add(item);
+    }
+
+    public static T Single<T>(this IEnumerable<T> list, String msg)
+    {
+        try
+        {
+            return list.Single();
+        }
+        catch (Exception)
+        {
+            throw new WeavingException(msg);
+        }
+    }
+}
+
+public class WeavingException : Exception
+{
+    public WeavingException(string message) : base(message)
+    {
+
     }
 }
