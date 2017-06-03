@@ -27,11 +27,11 @@
   <Target Name="NuGetBuild" DependsOnTargets="Clean">
     <MakeDir Directories="$(SolutionDir)NuGetBuild" />
     <Copy SourceFiles="$(SolutionDir)NuGet\Loom.Fody.nuspec" DestinationFolder="$(SolutionDir)NuGetBuild" />
-    <Copy SourceFiles="$(SolutionDir)Loom\bin\Loom.Fody\Loom.Fody.dll" DestinationFolder="$(SolutionDir)NuGetBuild" />
+    <Copy SourceFiles="$(SolutionDir)Loom\bin\Loom.Fody\build\Loom.Fody.dll" DestinationFolder="$(SolutionDir)NuGetBuild" />
     <Copy SourceFiles="$(SolutionDir)NuGet\Fody_ToBeDeleted.txt" DestinationFolder="$(SolutionDir)NuGetBuild\Content" />
     <Copy SourceFiles="$(ProjectDir)install.ps1" DestinationFolder="$(SolutionDir)NuGetBuild\Tools" />
     <Copy SourceFiles="$(ProjectDir)uninstall.ps1" DestinationFolder="$(SolutionDir)NuGetBuild\Tools" />
-    <PepitaPackage.CreatePackageTask NuGetBuildDirectory="$(SolutionDir)NuGetBuild" MetadataAssembly="$(SolutionDir)Loom\bin\Loom.Fody\Loom.Fody.dll" />
+    <PepitaPackage.CreatePackageTask NuGetBuildDirectory="$(SolutionDir)NuGetBuild" MetadataAssembly="$(SolutionDir)Loom\bin\Loom.Fody\build\Loom.Fody.dll" />
   </Target>
   <ItemGroup>
     <ProjectReference Include="..\Loom\Loom.csproj">
