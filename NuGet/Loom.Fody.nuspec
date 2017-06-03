@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata minClientVersion="2.8">
+    <id>Loom.Fody</id>
+    <version>1.0.0-alpha-0.1</version>
+    <title>Loom.Fody</title>
+    <authors>Jens Theisen</authors>
+    <owners>Jens Theisen</owners>
+    <developmentDependency>true</developmentDependency>
+    <licenseUrl>http://www.opensource.org/licenses/mit-license.php</licenseUrl>
+    <projectUrl>http://github.com/Fody/Loom</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <iconUrl>https://raw.github.com/Fody/Loom/master/Icons/package_icon.png</iconUrl>
+    <description>A sample Fody add-in.</description>
+    <summary />
+    <language>en-AU</language>
+    <tags>ILWeaving, Fody, Cecil</tags>
+    <dependencies>
+      <dependency id="Fody" version="2.0.0"/>
+    </dependencies>
+  </metadata>
+</package>
