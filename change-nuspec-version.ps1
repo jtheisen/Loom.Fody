@@ -5,6 +5,9 @@ Param(
     [string]$version
 )
 
+// stripping build number
+$version = $version -replace "-b\d+", ""
+
 $file = Get-Item $path
 
 $xml = [xml](Get-Content $path)
