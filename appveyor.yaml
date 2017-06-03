@@ -1,6 +1,7 @@
 version: 1.0.{build}
 image: Visual Studio 2017
 before_build:
+- echo $APPVEYOR_ACCOUNT_NAME
 - echo %APPVEYOR_BUILD_VERSION%
 - nuget restore
 - git reset --hard
