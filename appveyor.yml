@@ -1,13 +1,11 @@
 version: 1.0.0-alpha-b{build}
 image: Visual Studio 2017
 before_build:
-- ps: $env:PACKAGE_VERSION = $APPVEYOR_BUILD_VERSION -replace "-b\d+", ""
-- echo %PACKAGE_VERSION%
 - nuget restore
 - git reset --hard
-- powershell ".\change-nuspec-version.ps1 NuGet\Loom.Fody.nuspec %PACKAGE_VERSION%"
+- ps: sc package_version.txt ($APPVEYOR_BUILD_VERSION -replace "-b\d+", "")
+- powershell ".\change-nuspec-version.ps1 NuGet\Loom.Fody.nuspec (gc package_version.txt)"
 build:
   verbosity: minimal
 after_build:
-- echo %PACKAGE_VERSION%
-- appveyor PushArtifact NuGetBuild\Loom.Fody.%PACKAGE_VERSION%.nupkg
+- ps: appveyor PushArtifact "NuGetBuild\Loom.Fody.$(gc package_version.txt).nupkg"
