@@ -70,14 +70,13 @@ public class ModuleWeaver
     void WeaveProperty(TypeDefinition @class, FieldDefinition mixInField, TypeDefinition propertyImplementationTemplate, PropertyDefinition property)
     {
         var oldGetMethod = new MethodDefinition($"old{property.GetMethod.Name}", property.GetMethod.Attributes, property.GetMethod.ReturnType);
-        oldGetMethod.Body.Instructions.AddRange(property.GetMethod.Body.Instructions);
+        oldGetMethod.Body = property.GetMethod.Body;
         @class.Methods.Add(oldGetMethod);
 
         var oldSetMethod = new MethodDefinition($"old{property.SetMethod.Name}", property.SetMethod.Attributes, property.SetMethod.ReturnType);
-        oldSetMethod.Body.Instructions.AddRange(property.SetMethod.Body.Instructions);
+        oldSetMethod.Body = property.SetMethod.Body;
         oldSetMethod.Parameters.AddRange(property.SetMethod.Parameters);
         @class.Methods.Add(oldSetMethod);
-
 
         var accessorType = new TypeDefinition($"", $"{property.Name}Accessor", TypeAttributes.NestedPublic | TypeAttributes.Sealed | TypeAttributes.SequentialLayout | TypeAttributes.BeforeFieldInit);
         accessorType.BaseType = propertyImplementationTemplate.BaseType; // just because it's value type
@@ -120,9 +119,8 @@ public class ModuleWeaver
         var implementationField = new FieldDefinition($"_{property.Name}Implementation", FieldAttributes.Private, propertyImplementationType);
         @class.Fields.Add(implementationField);
 
-
+        property.GetMethod.Body = new MethodBody(property.GetMethod);
         var getMethodInstructions = property.GetMethod.Body.Instructions;
-        getMethodInstructions.Clear();
         getMethodInstructions.Add(Instruction.Create(OpCodes.Ldarg_0));
         getMethodInstructions.Add(Instruction.Create(OpCodes.Ldflda, implementationField));
         getMethodInstructions.Add(Instruction.Create(OpCodes.Ldarg_0));
@@ -131,8 +129,8 @@ public class ModuleWeaver
         getMethodInstructions.Add(Instruction.Create(OpCodes.Call, getImplementation));
         getMethodInstructions.Add(Instruction.Create(OpCodes.Ret));
 
+        property.SetMethod.Body = new MethodBody(property.SetMethod);
         var setMethodInstructions = property.SetMethod.Body.Instructions;
-        setMethodInstructions.Clear();
         setMethodInstructions.Add(Instruction.Create(OpCodes.Ldarg_0));
         setMethodInstructions.Add(Instruction.Create(OpCodes.Ldflda, implementationField));
         setMethodInstructions.Add(Instruction.Create(OpCodes.Ldarg_0));

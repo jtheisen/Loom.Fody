@@ -93,8 +93,6 @@ namespace AssemblyToProcess
     [Loom(typeof(MyMixIn<>), typeof(MyPropertyImplementation<,,>))]
     public class ClassToHaveItsPropertiesModified
     {
-        public Decimal Decimal { get; set; }
-
         public Int32 Int32
         {
             get
@@ -106,6 +104,8 @@ namespace AssemblyToProcess
                 Decimal = Int32;
             }
         }
+
+        public Decimal Decimal { get; set; }
     }
 
     #endregion

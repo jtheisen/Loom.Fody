@@ -20,6 +20,9 @@ namespace Loom.Tests
                 hadEvent = true;
             };
 
+            var dummy2 = instance.Int32;
+            var dummy1 = instance.Decimal;
+
             instance.Int32 = 42;
 
             Assert.IsTrue(hadEvent);
