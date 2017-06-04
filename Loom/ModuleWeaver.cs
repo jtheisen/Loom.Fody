@@ -69,6 +69,16 @@ public class ModuleWeaver
 
     void WeaveProperty(TypeDefinition @class, FieldDefinition mixInField, TypeDefinition propertyImplementationTemplate, PropertyDefinition property)
     {
+        var oldGetMethod = new MethodDefinition($"old{property.GetMethod.Name}", property.GetMethod.Attributes, property.GetMethod.ReturnType);
+        oldGetMethod.Body.Instructions.AddRange(property.GetMethod.Body.Instructions);
+        @class.Methods.Add(oldGetMethod);
+
+        var oldSetMethod = new MethodDefinition($"old{property.SetMethod.Name}", property.SetMethod.Attributes, property.SetMethod.ReturnType);
+        oldSetMethod.Body.Instructions.AddRange(property.SetMethod.Body.Instructions);
+        oldSetMethod.Parameters.AddRange(property.SetMethod.Parameters);
+        @class.Methods.Add(oldSetMethod);
+
+
         var accessorType = new TypeDefinition($"", $"{property.Name}Accessor", TypeAttributes.NestedPublic | TypeAttributes.Sealed | TypeAttributes.SequentialLayout | TypeAttributes.BeforeFieldInit);
         accessorType.BaseType = propertyImplementationTemplate.BaseType; // just because it's value type
         var previousPropertyImplementationConcreteIf = new InterfaceImplementation(previousPropertyImplementationIf.MakeGenericType(property.PropertyType, @class));
@@ -84,7 +94,7 @@ public class ModuleWeaver
         getMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_1));
         getMethod.Body.Instructions.Add(
             Instruction.Create(property.GetMethod.IsVirtual
-            ? OpCodes.Callvirt : OpCodes.Call, property.GetMethod));
+            ? OpCodes.Callvirt : OpCodes.Call, oldGetMethod));
         getMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         accessorType.Methods.Add(getMethod);
 
@@ -95,7 +105,7 @@ public class ModuleWeaver
         setMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ldarg_2));
         setMethod.Body.Instructions.Add(
             Instruction.Create(property.SetMethod.IsVirtual
-            ? OpCodes.Callvirt : OpCodes.Call, property.SetMethod));
+            ? OpCodes.Callvirt : OpCodes.Call, oldSetMethod));
         setMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         accessorType.Methods.Add(setMethod);
 
@@ -111,8 +121,8 @@ public class ModuleWeaver
         @class.Fields.Add(implementationField);
 
 
-        var newGetMethod = new MethodDefinition($"new{property.GetMethod.Name}", property.GetMethod.Attributes, property.GetMethod.ReturnType);
-        var getMethodInstructions = newGetMethod.Body.Instructions;
+        var getMethodInstructions = property.GetMethod.Body.Instructions;
+        getMethodInstructions.Clear();
         getMethodInstructions.Add(Instruction.Create(OpCodes.Ldarg_0));
         getMethodInstructions.Add(Instruction.Create(OpCodes.Ldflda, implementationField));
         getMethodInstructions.Add(Instruction.Create(OpCodes.Ldarg_0));
@@ -120,11 +130,9 @@ public class ModuleWeaver
         getMethodInstructions.Add(Instruction.Create(OpCodes.Ldflda, mixInField));
         getMethodInstructions.Add(Instruction.Create(OpCodes.Call, getImplementation));
         getMethodInstructions.Add(Instruction.Create(OpCodes.Ret));
-        @class.Methods.Add(newGetMethod);
 
-        var newSetMethod = new MethodDefinition($"new{property.SetMethod.Name}", property.SetMethod.Attributes, ModuleDefinition.TypeSystem.Void);
-        newSetMethod.Parameters.Add(new ParameterDefinition("value", ParameterAttributes.None, property.PropertyType));
-        var setMethodInstructions = newSetMethod.Body.Instructions;
+        var setMethodInstructions = property.SetMethod.Body.Instructions;
+        setMethodInstructions.Clear();
         setMethodInstructions.Add(Instruction.Create(OpCodes.Ldarg_0));
         setMethodInstructions.Add(Instruction.Create(OpCodes.Ldflda, implementationField));
         setMethodInstructions.Add(Instruction.Create(OpCodes.Ldarg_0));
@@ -133,10 +141,6 @@ public class ModuleWeaver
         setMethodInstructions.Add(Instruction.Create(OpCodes.Ldarg_1));
         setMethodInstructions.Add(Instruction.Create(OpCodes.Call, setImplementation));
         setMethodInstructions.Add(Instruction.Create(OpCodes.Ret));
-        @class.Methods.Add(newSetMethod);
-
-        property.SetMethod = newSetMethod;
-        property.GetMethod = newGetMethod;
 
         @class.NestedTypes.Add(accessorType);
     }

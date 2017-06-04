@@ -70,7 +70,7 @@ namespace AssemblyToProcess
         : IPropertyImplementation<IComparable<Value>, Object, Value, Container, MyMixIn<Container>>
 
         where Value : IComparable<Value>
-        where OriginalImplementation : IPreviousPropertyImplementation<Value, Container>
+        where OriginalImplementation : struct, IPreviousPropertyImplementation<Value, Container>
     {
         public OriginalImplementation originalImplementation;
 
@@ -95,7 +95,7 @@ namespace AssemblyToProcess
     {
         public Decimal Decimal { get; set; }
 
-        public virtual Int32 Int32
+        public Int32 Int32
         {
             get
             {
