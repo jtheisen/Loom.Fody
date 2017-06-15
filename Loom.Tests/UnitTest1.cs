@@ -27,5 +27,25 @@ namespace Loom.Tests
 
             Assert.IsTrue(hadEvent);
         }
+
+        [TestMethod]
+        public void CheckDelegationToMixIn()
+        {
+            var instance = new ClassToHaveItsPropertiesModified();
+
+            var withDelegationMethods = instance as IWithDelegationMethods;
+
+            Assert.ThrowsException<NotImplementedException>(() => withDelegationMethods.DelegateMe(-1, "test"));
+        }
+
+        [TestMethod]
+        public void CheckDelegationToProperty()
+        {
+            var instance = new ClassToHaveItsPropertiesModified();
+
+            var withDelegationMethods = instance as IWithDelegationMethods;
+
+            Assert.ThrowsException<NotImplementedException>(() => withDelegationMethods.DelegateMe(0, "test"));
+        }
     }
 }

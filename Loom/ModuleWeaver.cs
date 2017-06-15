@@ -16,6 +16,13 @@ public class ModuleWeaver
         LogInfo = m => { };
     }
 
+    public class PropertyInformation
+    {
+        public PropertyDefinition Property { get; set; }
+        public FieldDefinition Field { get; set; }
+        public TypeDefinition AccessorType { get; set; }
+    }
+
     const MethodAttributes PublicImplementationAttributes
         = MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.Public
         | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
@@ -47,27 +54,35 @@ public class ModuleWeaver
             WeaveType(@class, loomAttribute);
     }
 
-    GenericInstanceType mixInInstanceType;
-
     void WeaveType(TypeDefinition @class, CustomAttribute loomAttribute)
     {
-        WeaveMixIn(@class, loomAttribute, out var mixInField);
-        WeaveProperties(@class, mixInField,  loomAttribute);
-    }
+        var propertyInformation = new PropertyInformation[@class.Properties.Count];
 
-    void WeaveProperties(TypeDefinition @class, FieldDefinition mixInField, CustomAttribute loomAttribute)
-    {
         var arguments = loomAttribute.ConstructorArguments.ToList();
 
         var propertyImplementationGenericType = arguments[1].Value as TypeDefinition;
 
-        foreach (var property in @class.Properties)
+        // Methods and events are taken from the MixIn's type directly rather than, as
+        // would be more appropriate, the interfaces it implements. That's because that way
+        // we don't need to resolve the interface's type.
+
+        WeaveMixInWithEventDelegations(@class, loomAttribute, out var mixInType, out var mixInField);
+        WeavePropertyDelegations(@class, mixInField, propertyImplementationGenericType, propertyInformation);
+        WeaveMethodDelegations(@class, mixInType, mixInField, propertyImplementationGenericType, propertyInformation, loomAttribute);
+    }
+
+    void WeavePropertyDelegations(
+        TypeDefinition @class, FieldDefinition mixInField,
+        TypeDefinition propertyImplementationGenericType, PropertyInformation[] propertyInformation)
+    {
+        for (int i = 0; i < @class.Properties.Count; ++i)
         {
-            WeaveProperty(@class, mixInField, propertyImplementationGenericType, property);
+            propertyInformation[i]
+                = WeaveProperty(@class, mixInField, propertyImplementationGenericType, i, @class.Properties[i]);
         }
     }
 
-    void WeaveProperty(TypeDefinition @class, FieldDefinition mixInField, TypeDefinition propertyImplementationTemplate, PropertyDefinition property)
+    PropertyInformation WeaveProperty(TypeDefinition @class, FieldDefinition mixInField, TypeDefinition propertyImplementationTemplate, Int32 index, PropertyDefinition property)
     {
         var oldGetMethod = new MethodDefinition($"old{property.GetMethod.Name}", property.GetMethod.Attributes, property.GetMethod.ReturnType);
         oldGetMethod.Body = property.GetMethod.Body;
@@ -79,7 +94,7 @@ public class ModuleWeaver
         @class.Methods.Add(oldSetMethod);
 
         var accessorType = new TypeDefinition($"", $"{property.Name}Accessor", TypeAttributes.NestedPublic | TypeAttributes.Sealed | TypeAttributes.SequentialLayout | TypeAttributes.BeforeFieldInit);
-        accessorType.BaseType = propertyImplementationTemplate.BaseType; // just because it's value type
+        accessorType.BaseType = propertyImplementationTemplate.BaseType; // just because it's a value type
         var previousPropertyImplementationConcreteIf = new InterfaceImplementation(previousPropertyImplementationIf.MakeGenericType(property.PropertyType, @class));
         accessorType.Interfaces.Add(previousPropertyImplementationConcreteIf);
 
@@ -87,6 +102,11 @@ public class ModuleWeaver
         getPropertyNameMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ldstr, property.Name));
         getPropertyNameMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         accessorType.Methods.Add(getPropertyNameMethod);
+
+        var getIndexMethod = new MethodDefinition("GetIndex", PublicImplementationAttributes, ModuleDefinition.TypeSystem.Int32);
+        getIndexMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ldc_I4, index));
+        getIndexMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+        accessorType.Methods.Add(getIndexMethod);
 
         var getMethod = new MethodDefinition($"Get", PublicImplementationAttributes, property.PropertyType);
         getMethod.Parameters.Add(new ParameterDefinition("container", ParameterAttributes.None, @class));
@@ -113,6 +133,8 @@ public class ModuleWeaver
                 property.PropertyType, @class, accessorType);
         var getImplementationTemplate = propertyImplementationTemplate.Methods.Single(m => m.Name == "Get");
         var setImplementationTemplate = propertyImplementationTemplate.Methods.Single(m => m.Name == "Set");
+        // The methods don't appear to be generic themselves, but they're defined on the property implementation
+        // generic type, which has three generic parameters.
         var getImplementation = getImplementationTemplate.MakeGeneric(property.PropertyType, @class, accessorType);
         var setImplementation = setImplementationTemplate.MakeGeneric(property.PropertyType, @class, accessorType);
 
@@ -141,9 +163,17 @@ public class ModuleWeaver
         setMethodInstructions.Add(Instruction.Create(OpCodes.Ret));
 
         @class.NestedTypes.Add(accessorType);
+
+        return new PropertyInformation
+        {
+            Property = property,
+            Field = implementationField,
+            AccessorType = accessorType
+        };
     }
 
-    void WeaveMixIn(TypeDefinition @class, CustomAttribute loomAttribute, out FieldDefinition mixInField)
+    void WeaveMixInWithEventDelegations(TypeDefinition @class, CustomAttribute loomAttribute,
+        out TypeDefinition mixInType, out FieldDefinition mixInField)
     {
         var arguments = loomAttribute.ConstructorArguments.ToList();
 
@@ -151,9 +181,9 @@ public class ModuleWeaver
 
         var containerParameter = mixInGenericType.GenericParameters[0];
 
-        var mixInTypeInstance = mixInInstanceType = mixInGenericType.MakeGenericInstanceType(@class);
+        var mixInTypeInstance = mixInGenericType.MakeGenericInstanceType(@class);
 
-        var mixInType = mixInTypeInstance.Resolve();
+        mixInType = mixInTypeInstance.Resolve();
 
         foreach (var i in mixInType.Interfaces)
             @class.Interfaces.Add(i);
@@ -203,11 +233,101 @@ public class ModuleWeaver
         {
             processor.Append(GetLda(i));
         }
+        // method is on the MixIn type, which is a generic type with one type parameter (the container)
         processor.Append(Instruction.Create(OpCodes.Call, method.MakeGeneric(@class)));
         processor.Append(Instruction.Create(OpCodes.Nop));
         processor.Append(Instruction.Create(OpCodes.Ret));
         @class.Methods.Add(delegateMethod);
         return delegateMethod;
+    }
+
+    void WeaveMethodDelegations(
+        TypeDefinition @class, TypeDefinition mixInType, FieldDefinition mixInField,
+        TypeDefinition propertyImplementationTemplate, PropertyInformation[] propertyInformation,
+        CustomAttribute loomAttribute)
+    {
+        foreach (var method in mixInType.Methods)
+        {
+            WeaveDelegateToProperties
+                (@class, mixInField, propertyImplementationTemplate, propertyInformation, method);
+        }
+    }
+
+    void WeaveDelegateToProperties(
+        TypeDefinition @class,
+        FieldDefinition mixInField,
+        TypeDefinition propertyImplementationTemplate,
+        PropertyInformation[] propertyInformation,
+        MethodDefinition method)
+    {
+        var targetMethodOnProperties
+            = propertyImplementationTemplate.Methods.FirstOrDefault(m => m.Name == method.Name);
+
+        if (targetMethodOnProperties == null) return;
+
+        if (method.ReturnType != targetMethodOnProperties.ReturnType)
+            throw new Exception($"Property delegation method {method.Name} has different return types between the mixin and the property implementation.");
+
+        if (method.Parameters.Count != targetMethodOnProperties.Parameters.Count)
+            throw new Exception($"Property delegation method {method.Name} is expected to have the same number of parameters on the mixin than on the property implementation.");
+
+        if (method.Parameters.Count == 0)
+            throw new Exception($"Property delegation method {method.Name} lacks the index parameter on the mixin.");
+
+        if (method.Parameters[0].ParameterType != ModuleDefinition.TypeSystem.Int32)
+            throw new Exception($"Property delegation method {method.Name} is expected to have Int32 as its first parameter on the mixin.");
+
+        for (int i = 1; i < method.Parameters.Count; ++i)
+        {
+            if (method.Parameters[i].ParameterType != targetMethodOnProperties.Parameters[i].ParameterType)
+                throw new Exception($"Property delegation method {method.Name}'s parameter #{i} is different between the mixin and the property implementation.");
+        }
+
+        var newMethod = new MethodDefinition(method.Name, method.Attributes, method.ReturnType);
+        var parameters = new List<ParameterDefinition>();
+        for (int i = 0; i < method.Parameters.Count; ++i)
+        {
+            var p = method.Parameters[i];
+            newMethod.Parameters.Add(new ParameterDefinition(p.Name, p.Attributes, p.ParameterType));
+        }
+        @class.Methods.Add(newMethod);
+        var processor = newMethod.Body.GetILProcessor();
+
+        processor.Emit(OpCodes.Ldarg_1);
+        var switchInstruction = processor.AppendAndReturn(Instruction.Create(OpCodes.Switch, new Instruction[0]));
+
+        processor.Emit(OpCodes.Ldarg_1);
+        processor.Emit(OpCodes.Box, ModuleDefinition.TypeSystem.Int32);
+        processor.Emit(OpCodes.Ldarg_0);
+        processor.Emit(OpCodes.Ldflda, mixInField);
+        processor.Emit(OpCodes.Call, method);
+        processor.Emit(OpCodes.Ret);
+
+        var callsites = new List<Instruction>();
+
+        for (int pic = 0; pic < propertyInformation.Length; ++pic)
+        {
+            var info = propertyInformation[pic];
+
+            var head = processor.AppendAndReturn(Instruction.Create(OpCodes.Ldarg_0));
+            processor.Append(Instruction.Create(OpCodes.Ldflda, info.Field));
+            for (int ai = 1; ai <= method.Parameters.Count; ++ai)
+                processor.Append(GetLda(ai));
+            // The methods don't appear to be generic themselves, but they're defined on the property implementation
+            // generic type, which has three generic parameters.
+            var concreteTargetMethodOnProperties
+                = targetMethodOnProperties.MakeGeneric(info.Property.PropertyType, @class, info.AccessorType);
+            processor.Append(Instruction.Create(OpCodes.Call, concreteTargetMethodOnProperties));
+            processor.Append(Instruction.Create(OpCodes.Ret));
+
+            callsites.Add(head);
+
+
+
+            //callsites.Add(newMethod.Body.Instructions.Last()); // KILLME
+        }
+
+        switchInstruction.Operand = callsites.ToArray();
     }
 
     Instruction GetLda(Int32 i)
@@ -273,6 +393,12 @@ public static class Extensions
         {
             throw new WeavingException(msg);
         }
+    }
+
+    public static Instruction AppendAndReturn(this ILProcessor processor, Instruction instruction)
+    {
+        processor.Append(instruction);
+        return instruction;
     }
 }
 

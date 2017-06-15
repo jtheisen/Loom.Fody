@@ -19,7 +19,6 @@ namespace AssemblyToProcess
         public Type PropertyImplementation { get; }
     }
 
-
     // See sample below for an explanation of the type parameters.
 
     public interface IPropertyImplementation<ValueInterface, ContainerInterface, Value, Container, MixIn>
@@ -27,13 +26,23 @@ namespace AssemblyToProcess
         where Container : ContainerInterface
         where MixIn : struct
     {
-        Value Get(Container self, ref MixIn mixIn);
-        void Set(Container self, ref MixIn mixIn, Value value);
+        Value Get(
+            Container self,
+            ref MixIn mixIn
+            );
+
+        void Set(
+            Container self,
+            ref MixIn mixIn,
+            Value value
+            );
     }
 
     public interface IPreviousPropertyImplementation<Value, Container>
     {
         String GetPropertyName();
+        Int32 GetIndex();
+
         Value Get(Container container);
         void Set(Container container, Value value);
     }
@@ -42,22 +51,24 @@ namespace AssemblyToProcess
 
     #region The sample implementation: Implementing INotifyPropertyChanged!
 
+    public interface IWithDelegationMethods
+    {
+        void DelegateMe(Int32 index, String someparam);
+    }
+
     /// <summary>
     /// Our property implementations need a common mix in that implements the event.
     /// </summary>
-    public struct MyMixIn<Container> : INotifyPropertyChanged 
+    public struct MyMixIn<Container> : IWithDelegationMethods, INotifyPropertyChanged 
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
+        public void DelegateMe(Int32 index, String someparam) { throw new NotImplementedException(); }
+
         public void Fire(Container self, String propertyName)
         {
-            Debug.WriteLine("fired!");
-
             PropertyChanged?.Invoke(self, new PropertyChangedEventArgs(propertyName));
-
         }
-
-
     }
 
     /// <summary>
@@ -65,25 +76,32 @@ namespace AssemblyToProcess
     /// </summary>
     /// <typeparam name="Value">The type of the property (Decimal or Int32 in our sample).</typeparam>
     /// <typeparam name="Container">The type of the object we have the properties on.</typeparam>
-    /// <typeparam name="OriginalImplementation">Made by the weaver to allow for access to the previous properties.</typeparam>
-    public struct MyPropertyImplementation<Value, Container, OriginalImplementation>
+    /// <typeparam name="PreviousImplementation">Made by the weaver to allow for access to the previous properties.</typeparam>
+    public struct MyPropertyImplementation<Value, Container, PreviousImplementation>
         : IPropertyImplementation<IComparable<Value>, Object, Value, Container, MyMixIn<Container>>
 
         where Value : IComparable<Value>
-        where OriginalImplementation : struct, IPreviousPropertyImplementation<Value, Container>
+        where PreviousImplementation : struct, IPreviousPropertyImplementation<Value, Container>
     {
-        public OriginalImplementation originalImplementation;
+        PreviousImplementation previous;
+
+        public void DelegateMe(Container self, String someparam)
+        {
+
+        }
 
         public Value Get(Container self, ref MyMixIn<Container> mixIn)
         {
-            return originalImplementation.Get(self);
+            return previous.Get(self);
         }
 
         public void Set(Container self, ref MyMixIn<Container> mixIn, Value value)
         {
-            originalImplementation.Set(self, value);
-            mixIn.Fire(self, originalImplementation.GetPropertyName());
+            previous.Set(self, value);
+            mixIn.Fire(self, previous.GetPropertyName());
         }
+
+        public void Foo() { }
     }
 
     /// <summary>
@@ -106,6 +124,36 @@ namespace AssemblyToProcess
         }
 
         public Decimal Decimal { get; set; }
+    }
+
+    #endregion
+
+    #region Playground
+
+    public class Playground
+    {
+        public int Foo(int i)
+        {
+            switch (i)
+            {
+                case 1: return Bar1();
+                case 2: return Bar2();
+                case 3: return Bar3();
+                case 4: return Bar4();
+                case 5: return Bar5();
+                case 6: return Bar6();
+                case 7: return Bar7();
+                default: throw new NotImplementedException($"No such property index {i} on this object {this}.");
+            }
+        }
+
+        public int Bar1() { return 0; }
+        public int Bar2() { return 0; }
+        public int Bar3() { return 0; }
+        public int Bar4() { return 0; }
+        public int Bar5() { return 0; }
+        public int Bar6() { return 0; }
+        public int Bar7() { return 0; }
     }
 
     #endregion
