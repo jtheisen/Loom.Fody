@@ -2,54 +2,9 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 
-namespace AssemblyToProcess
+namespace AssemblyToProcess.Standard
 {
-    #region The interfaces and attributes we control the weaving with.
-
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
-    public class LoomAttribute : Attribute
-    {
-        public LoomAttribute(Type mixIn, Type propertyImplementation)
-        {
-            MixIn = mixIn;
-            PropertyImplementation = propertyImplementation;
-        }
-
-        public Type MixIn { get; }
-        public Type PropertyImplementation { get; }
-    }
-
-    // See sample below for an explanation of the type parameters.
-
-    public interface IPropertyImplementation<ValueInterface, ContainerInterface, Value, Container, MixIn>
-        where Value : ValueInterface
-        where Container : ContainerInterface
-        where MixIn : struct
-    {
-        Value Get(
-            Container self,
-            ref MixIn mixIn
-            );
-
-        void Set(
-            Container self,
-            ref MixIn mixIn,
-            Value value
-            );
-    }
-
-    public interface IPreviousPropertyImplementation<Value, Container>
-    {
-        String GetPropertyName();
-        Int32 GetIndex();
-
-        Value Get(Container container);
-        void Set(Container container, Value value);
-    }
-
-    #endregion
-
-    #region The sample implementation: Implementing INotifyPropertyChanged!
+    // The sample implementation: Implementing INotifyPropertyChanged!
 
     public interface IWithDelegationMethods
     {
@@ -126,36 +81,4 @@ namespace AssemblyToProcess
 
         public Decimal Decimal { get; set; }
     }
-
-    #endregion
-
-    #region Playground
-
-    public class Playground
-    {
-        public int Foo(int i)
-        {
-            switch (i)
-            {
-                case 1: return Bar1();
-                case 2: return Bar2();
-                case 3: return Bar3();
-                case 4: return Bar4();
-                case 5: return Bar5();
-                case 6: return Bar6();
-                case 7: return Bar7();
-                default: throw new NotImplementedException($"No such property index {i} on this object {this}.");
-            }
-        }
-
-        public int Bar1() { return 0; }
-        public int Bar2() { return 0; }
-        public int Bar3() { return 0; }
-        public int Bar4() { return 0; }
-        public int Bar5() { return 0; }
-        public int Bar6() { return 0; }
-        public int Bar7() { return 0; }
-    }
-
-    #endregion
 }
