@@ -296,10 +296,10 @@ public class ModuleWeaver
         processor.Emit(OpCodes.Ldarg_1);
         var switchInstruction = processor.AppendAndReturn(Instruction.Create(OpCodes.Switch, new Instruction[0]));
 
-        processor.Emit(OpCodes.Ldarg_1);
-        processor.Emit(OpCodes.Box, ModuleDefinition.TypeSystem.Int32);
         processor.Emit(OpCodes.Ldarg_0);
         processor.Emit(OpCodes.Ldflda, mixInField);
+        for (int ai = 1; ai <= method.Parameters.Count; ++ai)
+            processor.Append(GetLda(ai));
         processor.Emit(OpCodes.Call, method);
         processor.Emit(OpCodes.Ret);
 
@@ -311,7 +311,8 @@ public class ModuleWeaver
 
             var head = processor.AppendAndReturn(Instruction.Create(OpCodes.Ldarg_0));
             processor.Append(Instruction.Create(OpCodes.Ldflda, info.Field));
-            for (int ai = 1; ai <= method.Parameters.Count; ++ai)
+            processor.Append(Instruction.Create(OpCodes.Ldarg_0));
+            for (int ai = 2; ai <= method.Parameters.Count; ++ai)
                 processor.Append(GetLda(ai));
             // The methods don't appear to be generic themselves, but they're defined on the property implementation
             // generic type, which has three generic parameters.
