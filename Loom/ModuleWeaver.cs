@@ -268,8 +268,8 @@ public class ModuleWeaver
         if (method.ReturnType != targetMethodOnProperties.ReturnType)
             throw new Exception($"Property delegation method {method.Name} has different return types between the mixin and the property implementation.");
 
-        if (method.Parameters.Count != targetMethodOnProperties.Parameters.Count)
-            throw new Exception($"Property delegation method {method.Name} is expected to have the same number of parameters on the mixin than on the property implementation.");
+        if (method.Parameters.Count != targetMethodOnProperties.Parameters.Count - 1)
+            throw new Exception($"Property delegation method {method.Name} is expected to have one less parameter on the mixin than on the property implementation.");
 
         if (method.Parameters.Count == 0)
             throw new Exception($"Property delegation method {method.Name} lacks the index parameter on the mixin.");
@@ -277,10 +277,23 @@ public class ModuleWeaver
         if (method.Parameters[0].ParameterType != ModuleDefinition.TypeSystem.Int32)
             throw new Exception($"Property delegation method {method.Name} is expected to have Int32 as its first parameter on the mixin.");
 
+        // Those checks are more sophisticated than I thought: We're not checking against the concrete types but template parameter types.
+        //if (targetMethodOnProperties.Parameters[0].ParameterType != @class)
+        //    throw new Exception($"Property delegation method {method.Name} is expected to have {@class.Name} as its first parameter on the property implementation, but it has {targetMethodOnProperties.Parameters[0].ParameterType}");
+
+        //var mixInByReference = mixInField.FieldType.MakeByReferenceType();
+
+        //if (targetMethodOnProperties.Parameters[1].ParameterType != mixInByReference)
+        //    throw new Exception($"Property delegation method {method.Name} is expected to have {mixInByReference} as its second parameter on the property implementation.");
+
         for (int i = 1; i < method.Parameters.Count; ++i)
         {
-            if (method.Parameters[i].ParameterType != targetMethodOnProperties.Parameters[i].ParameterType)
-                throw new Exception($"Property delegation method {method.Name}'s parameter #{i} is different between the mixin and the property implementation.");
+            // The type comparison here fails when the types are derived from generics.
+            var lhs = method.Parameters[i].ParameterType;
+            var rhs = targetMethodOnProperties.Parameters[i + 1].ParameterType;
+
+            if (lhs != rhs)
+                throw new Exception($"Property delegation method {method.Name}'s parameter #{i}/#{i + 1} is different between the mixin and the property implementation. ({lhs} vs {rhs})");
         }
 
         var newMethod = new MethodDefinition(method.Name, method.Attributes, method.ReturnType);
@@ -312,6 +325,8 @@ public class ModuleWeaver
             var head = processor.AppendAndReturn(Instruction.Create(OpCodes.Ldarg_0));
             processor.Append(Instruction.Create(OpCodes.Ldflda, info.Field));
             processor.Append(Instruction.Create(OpCodes.Ldarg_0));
+            processor.Append(Instruction.Create(OpCodes.Ldarg_0));
+            processor.Append(Instruction.Create(OpCodes.Ldflda, mixInField));
             for (int ai = 2; ai <= method.Parameters.Count; ++ai)
                 processor.Append(GetLda(ai));
             // The methods don't appear to be generic themselves, but they're defined on the property implementation

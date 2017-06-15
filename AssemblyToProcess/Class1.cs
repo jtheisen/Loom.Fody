@@ -53,7 +53,8 @@ namespace AssemblyToProcess
 
     public interface IWithDelegationMethods
     {
-        String DelegateMe(Int32 index, String someparam);
+        Object GetPropertyValue(Int32 index);
+        void SetPropertyValue(Int32 index, Object value);
     }
 
     /// <summary>
@@ -63,7 +64,8 @@ namespace AssemblyToProcess
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public String DelegateMe(Int32 index, String someparam) { throw new NotImplementedException(); }
+        public Object GetPropertyValue(Int32 index) => throw new NotImplementedException();
+        public void SetPropertyValue(Int32 index, Object value) => throw new NotImplementedException();
 
         public void Fire(Container self, String propertyName)
         {
@@ -85,7 +87,11 @@ namespace AssemblyToProcess
     {
         PreviousImplementation previous;
 
-        public String DelegateMe(Container self, String someparam) => someparam;
+        public Object GetPropertyValue(Container self, ref MyMixIn<Container> mixIn)
+            => Get(self, ref mixIn);
+
+        public void SetPropertyValue(Container self, ref MyMixIn<Container> mixIn, Object value)
+            => Set(self, ref mixIn, (Value)value);
 
         public Value Get(Container self, ref MyMixIn<Container> mixIn)
         {
@@ -114,7 +120,7 @@ namespace AssemblyToProcess
             }
             set
             {
-                Decimal = Int32;
+                Decimal = value;
             }
         }
 
