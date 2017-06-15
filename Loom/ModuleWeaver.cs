@@ -300,7 +300,7 @@ public class ModuleWeaver
         processor.Emit(OpCodes.Ldflda, mixInField);
         for (int ai = 1; ai <= method.Parameters.Count; ++ai)
             processor.Append(GetLda(ai));
-        processor.Emit(OpCodes.Call, method);
+        processor.Emit(OpCodes.Call, method.MakeGeneric(@class));
         processor.Emit(OpCodes.Ret);
 
         var callsites = new List<Instruction>();
@@ -322,10 +322,6 @@ public class ModuleWeaver
             processor.Append(Instruction.Create(OpCodes.Ret));
 
             callsites.Add(head);
-
-
-
-            //callsites.Add(newMethod.Body.Instructions.Last()); // KILLME
         }
 
         switchInstruction.Operand = callsites.ToArray();

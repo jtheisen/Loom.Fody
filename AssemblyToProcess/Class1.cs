@@ -53,7 +53,7 @@ namespace AssemblyToProcess
 
     public interface IWithDelegationMethods
     {
-        void DelegateMe(Int32 index, String someparam);
+        String DelegateMe(Int32 index, String someparam);
     }
 
     /// <summary>
@@ -63,7 +63,7 @@ namespace AssemblyToProcess
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public void DelegateMe(Int32 index, String someparam) { throw new NotImplementedException(); }
+        public String DelegateMe(Int32 index, String someparam) { throw new NotImplementedException(); }
 
         public void Fire(Container self, String propertyName)
         {
@@ -85,10 +85,7 @@ namespace AssemblyToProcess
     {
         PreviousImplementation previous;
 
-        public void DelegateMe(Container self, String someparam)
-        {
-
-        }
+        public String DelegateMe(Container self, String someparam) => someparam;
 
         public Value Get(Container self, ref MyMixIn<Container> mixIn)
         {
@@ -100,8 +97,6 @@ namespace AssemblyToProcess
             previous.Set(self, value);
             mixIn.Fire(self, previous.GetPropertyName());
         }
-
-        public void Foo() { }
     }
 
     /// <summary>

@@ -45,7 +45,7 @@ namespace Loom.Tests
 
             var withDelegationMethods = instance as IWithDelegationMethods;
 
-            Assert.ThrowsException<NotImplementedException>(() => withDelegationMethods.DelegateMe(0, "test"));
+            Assert.AreEqual("test", withDelegationMethods.DelegateMe(0, "test"));
         }
     }
 }
