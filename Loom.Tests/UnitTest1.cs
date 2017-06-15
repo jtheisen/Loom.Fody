@@ -27,7 +27,7 @@ namespace Loom.Tests
 
             Assert.IsTrue(hadEvent);
         }
-
+         
         [TestMethod]
         public void CheckDelegationToMixIn()
         {
