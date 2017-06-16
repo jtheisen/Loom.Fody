@@ -63,26 +63,26 @@ public class ModuleWeaver
             = new Dictionary<TypeReference, CustomAttribute>();
 
 
-        public TypeReference GetPreviousPropertyImplementationIf(ModuleDefinition module)
+        public TypeReference GetAccessorInterface(ModuleDefinition module)
         {
-            if (previousPropertyImplementationIf != null)
+            if (accessorInterface != null)
             {
-                return previousPropertyImplementationIf;
+                return accessorInterface;
             }
 
             foreach (var type in module.Types)
             {
-                if (type.Name == "IPreviousPropertyImplementation`2")
+                if (type.Name == "IAccessor`2")
                 {
-                    previousPropertyImplementationIf = type;
+                    accessorInterface = type;
                     return type;
                 }
             }
 
-            throw new Exception("Can't find type IPreviousPropertyImplementation`2");
+            throw new Exception("Can't find type IAccessor`2");
         }
 
-        TypeReference previousPropertyImplementationIf;
+        TypeReference accessorInterface;
     }
 
     Cache cache;
@@ -141,7 +141,7 @@ public class ModuleWeaver
 
     PropertyInformation WeaveProperty(TypeDefinition @class, FieldDefinition mixInField, TypeDefinition propertyImplementationTemplate, Int32 index, PropertyDefinition property)
     {
-        var previousPropertyImplementationIf = cache.GetPreviousPropertyImplementationIf(propertyImplementationTemplate.Module);
+        var accessorInterface = cache.GetAccessorInterface(propertyImplementationTemplate.Module);
 
         var oldGetMethod = new MethodDefinition($"old{property.GetMethod.Name}", property.GetMethod.Attributes, property.GetMethod.ReturnType);
         oldGetMethod.Body = property.GetMethod.Body;
@@ -154,8 +154,8 @@ public class ModuleWeaver
 
         var accessorType = new TypeDefinition($"", $"{property.Name}Accessor", TypeAttributes.NestedPublic | TypeAttributes.Sealed | TypeAttributes.SequentialLayout | TypeAttributes.BeforeFieldInit);
         accessorType.BaseType = propertyImplementationTemplate.BaseType; // just because it's a value type
-        var previousPropertyImplementationConcreteIf = new InterfaceImplementation(previousPropertyImplementationIf.MakeGenericType(property.PropertyType, @class));
-        accessorType.Interfaces.Add(previousPropertyImplementationConcreteIf);
+        var accessorConcreteImplementationInterface = new InterfaceImplementation(accessorInterface.MakeGenericType(property.PropertyType, @class));
+        accessorType.Interfaces.Add(accessorConcreteImplementationInterface);
 
         var getPropertyNameMethod = new MethodDefinition("GetPropertyName", PublicImplementationAttributes, ModuleDefinition.TypeSystem.String);
         getPropertyNameMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ldstr, property.Name));
@@ -166,6 +166,11 @@ public class ModuleWeaver
         getIndexMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ldc_I4, index));
         getIndexMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         accessorType.Methods.Add(getIndexMethod);
+
+        var isVariableMethod = new MethodDefinition("IsVariable", PublicImplementationAttributes, ModuleDefinition.TypeSystem.Boolean);
+        isVariableMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ldc_I4_1));
+        isVariableMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+        accessorType.Methods.Add(isVariableMethod);
 
         var getMethod = new MethodDefinition($"Get", PublicImplementationAttributes, property.PropertyType);
         getMethod.Parameters.Add(new ParameterDefinition("container", ParameterAttributes.None, @class));

@@ -47,10 +47,12 @@ namespace IronStone.Loom
     {
     }
 
-    public interface IPropertyImplementation<ValueInterface, ContainerInterface, Value, Container, MixIn>
+    public interface IPropertyImplementation
+        <ValueInterface, ContainerInterface, Value, Container, MixIn, Accessor>
         where Value : ValueInterface
         where Container : ContainerInterface
         where MixIn : struct
+        where Accessor : IAccessor<Value, Container>
     {
         Value Get(
             Container self,
@@ -64,10 +66,11 @@ namespace IronStone.Loom
             );
     }
 
-    public interface IPreviousPropertyImplementation<Value, Container>
+    public interface IAccessor<Value, Container>
     {
         String GetPropertyName();
         Int32 GetIndex();
+        Boolean IsVariable();
 
         Value Get(Container container);
         void Set(Container container, Value value);

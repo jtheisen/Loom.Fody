@@ -37,14 +37,14 @@ namespace AssemblyToProcess.Standard
     /// </summary>
     /// <typeparam name="Value">The type of the property (Decimal or Int32 in our sample).</typeparam>
     /// <typeparam name="Container">The type of the object we have the properties on.</typeparam>
-    /// <typeparam name="PreviousImplementation">Made by the weaver to allow for access to the previous properties.</typeparam>
-    public struct MyPropertyImplementation<Value, Container, PreviousImplementation>
-        : IPropertyImplementation<IComparable<Value>, Object, Value, Container, MyMixIn<Container>>
+    /// <typeparam name="Accessor">Made by the weaver to allow for access to the previous properties.</typeparam>
+    public struct MyPropertyImplementation<Value, Container, Accessor>
+        : IPropertyImplementation<IComparable<Value>, Object, Value, Container, MyMixIn<Container>, Accessor>
 
         where Value : IComparable<Value>
-        where PreviousImplementation : struct, IPreviousPropertyImplementation<Value, Container>
+        where Accessor : struct, IAccessor<Value, Container>
     {
-        PreviousImplementation previous;
+        Accessor accessor;
 
         public Object GetPropertyValue(Container self, ref MyMixIn<Container> mixIn)
             => Get(self, ref mixIn);
@@ -54,13 +54,13 @@ namespace AssemblyToProcess.Standard
 
         public Value Get(Container self, ref MyMixIn<Container> mixIn)
         {
-            return previous.Get(self);
+            return accessor.Get(self);
         }
 
         public void Set(Container self, ref MyMixIn<Container> mixIn, Value value)
         {
-            previous.Set(self, value);
-            mixIn.Fire(self, previous.GetPropertyName());
+            accessor.Set(self, value);
+            mixIn.Fire(self, accessor.GetPropertyName());
         }
     }
 
