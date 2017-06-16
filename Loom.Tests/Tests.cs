@@ -6,10 +6,10 @@ using System.ComponentModel;
 namespace Loom.Tests
 {
     [TestClass]
-    public class UnitTest1
+    public class BasicTests
     {
         [TestMethod]
-        public void TestMethod1()
+        public void CheckBasics()
         {
             var instance = new ClassToHaveItsPropertiesModified();
 
