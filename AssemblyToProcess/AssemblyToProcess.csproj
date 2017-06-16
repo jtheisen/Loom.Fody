@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInformation.cs" />
     <Compile Include="AttributesAndInterfaces.cs" />
+    <Compile Include="Moldinium.cs" />
     <Compile Include="Standard.cs" />
   </ItemGroup>
   <ItemGroup>

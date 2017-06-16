@@ -36,10 +36,16 @@ public class ModuleWeaver
             this.self = self;
         }
         
-        public Boolean HasWeaveTypeAttribute(TypeReference potential, out CustomAttribute baseAttribute)
+        public Boolean HasWeaveTypeAttribute(TypeReference potential, out CustomAttribute baseAttribute, Int32 nesting = 0)
         {
             if (weaveTypeAttributeCache.TryGetValue(potential, out baseAttribute))
                 return baseAttribute != null;
+
+            if (nesting > 5)
+            {
+                weaveTypeAttributeCache[potential] = baseAttribute = null;
+                return false;
+            }
 
             foreach (var attribute in potential.Resolve().CustomAttributes)
             {
@@ -51,7 +57,7 @@ public class ModuleWeaver
                     return true;
                 }
 
-                if (HasWeaveTypeAttribute(attribute.AttributeType, out baseAttribute))
+                if (HasWeaveTypeAttribute(attribute.AttributeType, out baseAttribute, nesting = nesting + 1))
                     return baseAttribute != null;
             }
 
@@ -93,10 +99,10 @@ public class ModuleWeaver
 
         var types = ModuleDefinition.GetTypes();
 
-        LogInfo("Hello there!");
-
         foreach (var type in types)
             PotentiallyWeaveType(type);
+
+        LogInfo("done.");
     }
 
     void PotentiallyWeaveType(TypeDefinition @class)
@@ -105,8 +111,6 @@ public class ModuleWeaver
 
         if (cache.HasWeaveTypeAttribute(@class, out var baseAttribute))
         {
-            LogInfo("attribute is null: " + (baseAttribute == null));
-
             WeaveType(@class, baseAttribute);
         }
     }
@@ -236,12 +240,17 @@ public class ModuleWeaver
         };
     }
 
-    void WeaveMixInWithEventDelegations(TypeDefinition @class, CustomAttribute loomAttribute,
+    void WeaveMixInWithEventDelegations(TypeDefinition @class, CustomAttribute weaveTypeAttribute,
         out TypeDefinition mixInType, out FieldDefinition mixInField)
     {
-        var arguments = loomAttribute.ConstructorArguments.ToList();
+        var arguments = weaveTypeAttribute.ConstructorArguments.ToList();
+
+        LogInfo("a: " + arguments.Count);
 
         var mixInGenericType = arguments[0].Value as TypeDefinition;
+
+        if (mixInGenericType.GenericParameters.Count == 0)
+            throw new Exception($"Type {mixInGenericType} has no generic parameters.");
 
         var containerParameter = mixInGenericType.GenericParameters[0];
 
