@@ -27,20 +27,73 @@ public class ModuleWeaver
         = MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.Public
         | MethodAttributes.Virtual | MethodAttributes.Final | MethodAttributes.NewSlot;
 
-    TypeDefinition previousPropertyImplementationIf;
-    TypeReference loomAttributeType;
+    public class Cache
+    {
+        ModuleWeaver self;
+
+        public Cache(ModuleWeaver self)
+        {
+            this.self = self;
+        }
+        
+        public Boolean HasWeaveTypeAttribute(TypeReference potential, out CustomAttribute baseAttribute)
+        {
+            if (weaveTypeAttributeCache.TryGetValue(potential, out baseAttribute))
+                return baseAttribute != null;
+
+            foreach (var attribute in potential.Resolve().CustomAttributes)
+            {
+                if (attribute.AttributeType.Name == "AttributeUsageAttribute") continue;
+
+                if (attribute.AttributeType.Name == "WeaveClassAttribute")
+                {
+                    weaveTypeAttributeCache[potential] = baseAttribute = attribute;
+                    return true;
+                }
+
+                if (HasWeaveTypeAttribute(attribute.AttributeType, out baseAttribute))
+                    return baseAttribute != null;
+            }
+
+            weaveTypeAttributeCache[potential] = null;
+            return false;
+        }
+
+        Dictionary<TypeReference, CustomAttribute> weaveTypeAttributeCache
+            = new Dictionary<TypeReference, CustomAttribute>();
+
+
+        public TypeReference GetPreviousPropertyImplementationIf(ModuleDefinition module)
+        {
+            if (previousPropertyImplementationIf != null)
+            {
+                return previousPropertyImplementationIf;
+            }
+
+            foreach (var type in module.Types)
+            {
+                if (type.Name == "IPreviousPropertyImplementation`2")
+                {
+                    previousPropertyImplementationIf = type;
+                    return type;
+                }
+            }
+
+            throw new Exception("Can't find type IPreviousPropertyImplementation`2");
+        }
+
+        TypeReference previousPropertyImplementationIf;
+    }
+
+    Cache cache;
 
     public void Execute()
     {
+        cache = new Cache(this);
+
         var types = ModuleDefinition.GetTypes();
 
-        previousPropertyImplementationIf = types
-            .Where(n => n.Name == "IPreviousPropertyImplementation`2")
-            .Single("Can't find type IPreviousPropertyImplementation`2");
-
-        loomAttributeType = types
-            .Where(t => t.Name == "LoomAttribute")
-            .Single("Can't find the LoomAttribute");
+        LogInfo("Hello there!");
 
         foreach (var type in types)
             PotentiallyWeaveType(type);
@@ -48,17 +101,21 @@ public class ModuleWeaver
 
     void PotentiallyWeaveType(TypeDefinition @class)
     {
-        var loomAttributes = @class.CustomAttributes.Where(a => a.AttributeType == loomAttributeType).ToArray();
+        if (@class.Name.EndsWith("Attribute")) return;
 
-        foreach (var loomAttribute in loomAttributes)
-            WeaveType(@class, loomAttribute);
+        if (cache.HasWeaveTypeAttribute(@class, out var baseAttribute))
+        {
+            LogInfo("attribute is null: " + (baseAttribute == null));
+
+            WeaveType(@class, baseAttribute);
+        }
     }
 
-    void WeaveType(TypeDefinition @class, CustomAttribute loomAttribute)
+    void WeaveType(TypeDefinition @class, CustomAttribute weaveTypeAttribute)
     {
         var propertyInformation = new PropertyInformation[@class.Properties.Count];
 
-        var arguments = loomAttribute.ConstructorArguments.ToList();
+        var arguments = weaveTypeAttribute.ConstructorArguments.ToList();
 
         var propertyImplementationGenericType = arguments[1].Value as TypeDefinition;
 
@@ -66,9 +123,9 @@ public class ModuleWeaver
         // would be more appropriate, the interfaces it implements. That's because that way
         // we don't need to resolve the interface's type.
 
-        WeaveMixInWithEventDelegations(@class, loomAttribute, out var mixInType, out var mixInField);
+        WeaveMixInWithEventDelegations(@class, weaveTypeAttribute, out var mixInType, out var mixInField);
         WeavePropertyDelegations(@class, mixInField, propertyImplementationGenericType, propertyInformation);
-        WeaveMethodDelegations(@class, mixInType, mixInField, propertyImplementationGenericType, propertyInformation, loomAttribute);
+        WeaveMethodDelegations(@class, mixInType, mixInField, propertyImplementationGenericType, propertyInformation, weaveTypeAttribute);
     }
 
     void WeavePropertyDelegations(
@@ -84,6 +141,8 @@ public class ModuleWeaver
 
     PropertyInformation WeaveProperty(TypeDefinition @class, FieldDefinition mixInField, TypeDefinition propertyImplementationTemplate, Int32 index, PropertyDefinition property)
     {
+        var previousPropertyImplementationIf = cache.GetPreviousPropertyImplementationIf(propertyImplementationTemplate.Module);
+
         var oldGetMethod = new MethodDefinition($"old{property.GetMethod.Name}", property.GetMethod.Attributes, property.GetMethod.ReturnType);
         oldGetMethod.Body = property.GetMethod.Body;
         @class.Methods.Add(oldGetMethod);
@@ -412,6 +471,17 @@ public static class Extensions
         processor.Append(instruction);
         return instruction;
     }
+
+    public static IEnumerable<TypeReference> GetSelfAndBases(this TypeReference reference)
+    {
+        while (reference != null)
+        {
+            yield return reference;
+
+            reference = reference.Resolve().BaseType;
+        }
+    }
+
 }
 
 public class WeavingException : Exception

@@ -43,7 +43,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Interfaces.cs" />
+    <Compile Include="AssemblyInformation.cs" />
+    <Compile Include="AttributesAndInterfaces.cs" />
     <Compile Include="Standard.cs" />
   </ItemGroup>
   <ItemGroup>

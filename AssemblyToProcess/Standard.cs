@@ -1,3 +1,4 @@
+using IronStone.Loom;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -17,9 +18,12 @@ namespace AssemblyToProcess.Standard
     /// </summary>
     public struct MyMixIn<Container> : IWithDelegationMethods, INotifyPropertyChanged 
     {
+        [WeaveEventDelegation]
         public event PropertyChangedEventHandler PropertyChanged;
 
+        [WeaveMethodDelegation]
         public Object GetPropertyValue(Int32 index) => throw new NotImplementedException();
+        [WeaveMethodDelegation]
         public void SetPropertyValue(Int32 index, Object value) => throw new NotImplementedException();
 
         public void Fire(Container self, String propertyName)
@@ -60,11 +64,18 @@ namespace AssemblyToProcess.Standard
         }
     }
 
+    // This can be used in place of the WeaveClassAttribute that is on it.
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+    [WeaveClass(typeof(MyMixIn<>), typeof(MyPropertyImplementation<,,>))]
+    public class WeaveAsMyPropertyImplementationAttribute : Attribute
+    {
+    }
+
     /// <summary>
     /// This is our sample class to be re-woven. It can actually really live in the
     /// same assembly as the property implementation above.
     /// </summary>
-    [Loom(typeof(MyMixIn<>), typeof(MyPropertyImplementation<,,>))]
+    [WeaveClass(typeof(MyMixIn<>), typeof(MyPropertyImplementation<,,>))]
     public class ClassToHaveItsPropertiesModified
     {
         public Int32 Int32
@@ -81,4 +92,14 @@ namespace AssemblyToProcess.Standard
 
         public Decimal Decimal { get; set; }
     }
+
+    /// <summary>
+    /// This is a generic sample class to be re-woven.
+    /// </summary>
+    [WeaveClass(typeof(MyMixIn<>), typeof(MyPropertyImplementation<,,>))]
+    public class GenericClassToHaveItsPropertiesModified<Param>
+    {
+        public Param Value { get; set; }
+    }
+
 }

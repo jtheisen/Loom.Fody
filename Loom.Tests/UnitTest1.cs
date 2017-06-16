@@ -1,6 +1,6 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using AssemblyToProcess;
+using AssemblyToProcess.Standard;
 using System.ComponentModel;
 
 namespace Loom.Tests
@@ -61,5 +61,15 @@ namespace Loom.Tests
             Assert.ThrowsException<InvalidCastException>
                 (() => withDelegationMethods.SetPropertyValue(1, "no!"));
         }
+
+        //[TestMethod]
+        //public void GenericTests()
+        //{
+        //    var instance = new GenericClassToHaveItsPropertiesModified<String>();
+
+        //    var withDelegationMethods = instance as IWithDelegationMethods;
+
+        //    instance.Value = "Hello!";
+        //}
     }
 }
