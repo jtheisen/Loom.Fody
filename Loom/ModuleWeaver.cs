@@ -121,7 +121,7 @@ public class ModuleWeaver
 
         var arguments = weaveTypeAttribute.ConstructorArguments.ToList();
 
-        var propertyImplementationGenericType = arguments[1].Value as TypeDefinition;
+        var propertyImplementationGenericType = ModuleDefinition.ImportReference(arguments[1].Value as TypeReference).Resolve();
 
         // Methods and events are taken from the MixIn's type directly rather than, as
         // would be more appropriate, the interfaces it implements. That's because that way
@@ -196,9 +196,8 @@ public class ModuleWeaver
         setMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         accessorType.Methods.Add(setMethod);
 
-        var propertyImplementationType =
-            propertyImplementationTemplate.MakeGenericType(
-                property.PropertyType, @class, accessorType);
+        var propertyImplementationType = propertyImplementationTemplate.MakeGenericType(property.PropertyType, @class, accessorType);
+
         var getImplementationTemplate = propertyImplementationTemplate.Methods.Single(m => m.Name == "Get");
         var setImplementationTemplate = propertyImplementationTemplate.Methods.Single(m => m.Name == "Set");
         // The methods don't appear to be generic themselves, but they're defined on the property implementation
@@ -245,16 +244,16 @@ public class ModuleWeaver
     {
         var arguments = weaveTypeAttribute.ConstructorArguments.ToList();
 
-        LogInfo("a: " + arguments.Count);
+        var mixInGenericType = arguments[0].Value as TypeReference;
 
-        var mixInGenericType = arguments[0].Value as TypeDefinition;
+        mixInGenericType = ModuleDefinition.ImportReference(mixInGenericType);
 
         if (mixInGenericType.GenericParameters.Count == 0)
             throw new Exception($"Type {mixInGenericType} has no generic parameters.");
 
         var containerParameter = mixInGenericType.GenericParameters[0];
 
-        var mixInTypeInstance = mixInGenericType.MakeGenericInstanceType(@class);
+        var mixInTypeInstance = ModuleDefinition.ImportReference(mixInGenericType.MakeGenericInstanceType(@class));
 
         mixInType = mixInTypeInstance.Resolve();
 
@@ -322,7 +321,7 @@ public class ModuleWeaver
         foreach (var method in mixInType.Methods)
         {
             WeaveDelegateToProperties
-                (@class, mixInField, propertyImplementationTemplate, propertyInformation, method);
+                (@class, mixInField, propertyImplementationTemplate, propertyInformation, ModuleDefinition.ImportReference(method));
         }
     }
 
@@ -331,15 +330,15 @@ public class ModuleWeaver
         FieldDefinition mixInField,
         TypeDefinition propertyImplementationTemplate,
         PropertyInformation[] propertyInformation,
-        MethodDefinition method)
+        MethodReference method)
     {
         var targetMethodOnProperties
             = propertyImplementationTemplate.Methods.FirstOrDefault(m => m.Name == method.Name);
 
         if (targetMethodOnProperties == null) return;
 
-        if (method.ReturnType != targetMethodOnProperties.ReturnType)
-            throw new Exception($"Property delegation method {method.Name} has different return types between the mixin and the property implementation.");
+        if (method.ReturnType.FullName != targetMethodOnProperties.ReturnType.FullName)
+            throw new Exception($"Property delegation method {method.Name} has different return types between the mixin and the property implementation. ({method.ReturnType} and {targetMethodOnProperties.ReturnType})");
 
         if (method.Parameters.Count != targetMethodOnProperties.Parameters.Count - 1)
             throw new Exception($"Property delegation method {method.Name} is expected to have one less parameter on the mixin than on the property implementation.");
@@ -365,11 +364,11 @@ public class ModuleWeaver
             var lhs = method.Parameters[i].ParameterType;
             var rhs = targetMethodOnProperties.Parameters[i + 1].ParameterType;
 
-            if (lhs != rhs)
+            if (lhs.FullName != rhs.FullName)
                 throw new Exception($"Property delegation method {method.Name}'s parameter #{i}/#{i + 1} is different between the mixin and the property implementation. ({lhs} vs {rhs})");
         }
 
-        var newMethod = new MethodDefinition(method.Name, method.Attributes, method.ReturnType);
+        var newMethod = new MethodDefinition(method.Name, PublicImplementationAttributes, method.ReturnType);
         var parameters = new List<ParameterDefinition>();
         for (int i = 0; i < method.Parameters.Count; ++i)
         {
