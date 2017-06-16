@@ -193,7 +193,6 @@ namespace AssemblyToProcess.Moldinium
 
     struct TrackableObjectMixIn<Container> : ITrackableObject
     {
-        // implemented by Loom
         public void Notify(Int32 index, TrackingNotification notification) { }
 
         public void Update(Int32 index, String reason) { }
@@ -235,7 +234,7 @@ namespace AssemblyToProcess.Moldinium
             => target == other.target && index == other.index;
 
         public override String ToString()
-            => target.GetCombinedName(index);
+            => null;
     }
 
     struct Dependency : IEquatable<Dependency>
@@ -253,10 +252,11 @@ namespace AssemblyToProcess.Moldinium
             => target == other.target && index == other.index;
 
         public override String ToString()
-            => target.GetCombinedName(index);
+            => null;
     }
 
-    struct TrackingProperty<T, Container, Accessor> : IPropertyImplementation<T, ITrackableObject, T, Container, TrackableObjectMixIn<Container>, Accessor>
+    struct TrackingProperty<T, Container, Accessor>
+        : IPropertyImplementation<T, ITrackableObject, T, Container, TrackableObjectMixIn<Container>, Accessor>
         where Container : ITrackableObject
         where Accessor : IAccessor<T, Container>
     {
@@ -393,9 +393,6 @@ namespace AssemblyToProcess.Moldinium
 
             var addedDependencies =
                 newDependencies.Except(trackingData.dependencies);
-
-            Tracker.logger?.Log(GetName(self),
-                $"new dependencies, adding {(addedDependencies.ToListString())}, removing {removedDependencies.ToListString()}");
 
             foreach (var dependency in removedDependencies)
                 dependency.target.Unsubscribe(dependency.index, ourselves);
@@ -711,20 +708,7 @@ namespace AssemblyToProcess.Moldinium
         public static IDisposable Batch() => Tracker.Batch();
     }
 
-    static class InternalExtensions
-    {
-        public static String ToListString(this IEnumerable<Dependency> dependencies)
-            => $"[ {String.Join(", ", from d in dependencies select d.ToString())} ]";
 
-        public static String ToListString(this IEnumerable<Subscriber> subscribers)
-            => $"[ {String.Join(", ", from d in subscribers select d.ToString())} ]";
-
-        public static String GetCombinedName(this ITrackingSubscriber target, Int32 index)
-        {
-            var propertyName = target.GetPropertyName(index);
-            return propertyName == null ? $"{target}" : $"{target}.{propertyName}";
-        }
-    }
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
     [WeaveClass(typeof(TrackableObjectMixIn<>), typeof(TrackingProperty<,,>))]
