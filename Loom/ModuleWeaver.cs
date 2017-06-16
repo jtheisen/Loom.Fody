@@ -121,7 +121,7 @@ public class ModuleWeaver
 
         var arguments = weaveTypeAttribute.ConstructorArguments.ToList();
 
-        var propertyImplementationGenericType = ModuleDefinition.ImportReference(arguments[1].Value as TypeReference).Resolve();
+        var propertyImplementationGenericType = ModuleDefinition.ImportReference(arguments[1].Value as TypeReference);
 
         // Methods and events are taken from the MixIn's type directly rather than, as
         // would be more appropriate, the interfaces it implements. That's because that way
@@ -134,7 +134,7 @@ public class ModuleWeaver
 
     void WeavePropertyDelegations(
         TypeDefinition @class, FieldDefinition mixInField,
-        TypeDefinition propertyImplementationGenericType, PropertyInformation[] propertyInformation)
+        TypeReference propertyImplementationGenericType, PropertyInformation[] propertyInformation)
     {
         for (int i = 0; i < @class.Properties.Count; ++i)
         {
@@ -143,7 +143,7 @@ public class ModuleWeaver
         }
     }
 
-    PropertyInformation WeaveProperty(TypeDefinition @class, FieldDefinition mixInField, TypeDefinition propertyImplementationTemplate, Int32 index, PropertyDefinition property)
+    PropertyInformation WeaveProperty(TypeDefinition @class, FieldDefinition mixInField, TypeReference propertyImplementationTemplate, Int32 index, PropertyDefinition property)
     {
         var accessorInterface = cache.GetAccessorInterface(propertyImplementationTemplate.Module);
 
@@ -157,7 +157,7 @@ public class ModuleWeaver
         @class.Methods.Add(oldSetMethod);
 
         var accessorType = new TypeDefinition($"", $"{property.Name}Accessor", TypeAttributes.NestedPublic | TypeAttributes.Sealed | TypeAttributes.SequentialLayout | TypeAttributes.BeforeFieldInit);
-        accessorType.BaseType = propertyImplementationTemplate.BaseType; // just because it's a value type
+        accessorType.BaseType = ModuleDefinition.TypeSystem.Int32.Resolve().BaseType; // just because it's a value type
         var accessorConcreteImplementationInterface = new InterfaceImplementation(accessorInterface.MakeGenericType(property.PropertyType, @class));
         accessorType.Interfaces.Add(accessorConcreteImplementationInterface);
 
@@ -198,8 +198,9 @@ public class ModuleWeaver
 
         var propertyImplementationType = propertyImplementationTemplate.MakeGenericType(property.PropertyType, @class, accessorType);
 
-        var getImplementationTemplate = propertyImplementationTemplate.Methods.Single(m => m.Name == "Get");
-        var setImplementationTemplate = propertyImplementationTemplate.Methods.Single(m => m.Name == "Set");
+        var methods = propertyImplementationTemplate.Resolve().Methods;
+        var getImplementationTemplate = ModuleDefinition.ImportReference(methods.Single(m => m.Name == "Get"));
+        var setImplementationTemplate = ModuleDefinition.ImportReference(methods.Single(m => m.Name == "Set"));
         // The methods don't appear to be generic themselves, but they're defined on the property implementation
         // generic type, which has three generic parameters.
         var getImplementation = getImplementationTemplate.MakeGeneric(property.PropertyType, @class, accessorType);
@@ -257,11 +258,12 @@ public class ModuleWeaver
 
         mixInType = mixInTypeInstance.Resolve();
 
+        mixInField = new FieldDefinition($"mixInField", FieldAttributes.Public | FieldAttributes.SpecialName, mixInTypeInstance);
+
         foreach (var i in mixInType.Interfaces)
             @class.Interfaces.Add(i);
 
-        mixInField = new FieldDefinition($"mixInField", FieldAttributes.Public | FieldAttributes.SpecialName, mixInTypeInstance);
-
+        // This causes the compile to fail with a complaint about "PropertyChangedEventHandler" being external.
         @class.Fields.Add(mixInField);
 
         // Other methods may also be useful:
@@ -278,15 +280,15 @@ public class ModuleWeaver
 
     void WeaveEvent(TypeDefinition @class, GenericParameter containerParameter, FieldDefinition mixInField, EventDefinition @event)
     {
-        var delegateEvent = new EventDefinition(@event.Name, EventAttributes.None, @event.EventType);
-        delegateEvent.AddMethod = WeaveDelegate(@class, containerParameter, mixInField, @event.AddMethod);
-        delegateEvent.RemoveMethod = WeaveDelegate(@class, containerParameter, mixInField, @event.RemoveMethod);
+        var delegateEvent = new EventDefinition(@event.Name, EventAttributes.None, ModuleDefinition.ImportReference(@event.EventType));
+        delegateEvent.AddMethod = WeaveDelegate(@class, containerParameter, mixInField, @event.AddMethod, delegateEvent.EventType);
+        delegateEvent.RemoveMethod = WeaveDelegate(@class, containerParameter, mixInField, @event.RemoveMethod, delegateEvent.EventType);
         @class.Events.Add(delegateEvent);
     }
 
-    MethodDefinition WeaveDelegate(TypeDefinition @class, GenericParameter containerParameter, FieldDefinition mixInField, MethodDefinition method)
+    MethodDefinition WeaveDelegate(TypeDefinition @class, GenericParameter containerParameter, FieldDefinition mixInField, MethodDefinition method, TypeReference eventType)
     {
-        var delegateMethod = new MethodDefinition(method.Name, PublicImplementationAttributes, method.ReturnType);
+        var delegateMethod = new MethodDefinition(method.Name, PublicImplementationAttributes, eventType);
         var parameters = new List<ParameterDefinition>();
         foreach (var parameter in method.Parameters)
         {
@@ -306,7 +308,8 @@ public class ModuleWeaver
             processor.Append(GetLda(i));
         }
         // method is on the MixIn type, which is a generic type with one type parameter (the container)
-        processor.Append(Instruction.Create(OpCodes.Call, method.MakeGeneric(@class)));
+        var methodReference = ModuleDefinition.ImportReference(method);
+        processor.Append(Instruction.Create(OpCodes.Call, methodReference.MakeGeneric(@class)));
         processor.Append(Instruction.Create(OpCodes.Nop));
         processor.Append(Instruction.Create(OpCodes.Ret));
         @class.Methods.Add(delegateMethod);
@@ -315,7 +318,7 @@ public class ModuleWeaver
 
     void WeaveMethodDelegations(
         TypeDefinition @class, TypeDefinition mixInType, FieldDefinition mixInField,
-        TypeDefinition propertyImplementationTemplate, PropertyInformation[] propertyInformation,
+        TypeReference propertyImplementationTemplate, PropertyInformation[] propertyInformation,
         CustomAttribute loomAttribute)
     {
         foreach (var method in mixInType.Methods)
@@ -328,12 +331,14 @@ public class ModuleWeaver
     void WeaveDelegateToProperties(
         TypeDefinition @class,
         FieldDefinition mixInField,
-        TypeDefinition propertyImplementationTemplate,
+        TypeReference propertyImplementationTemplate,
         PropertyInformation[] propertyInformation,
         MethodReference method)
     {
+        var methods = propertyImplementationTemplate.Resolve().Methods;
+
         var targetMethodOnProperties
-            = propertyImplementationTemplate.Methods.FirstOrDefault(m => m.Name == method.Name);
+            = methods.FirstOrDefault(m => m.Name == method.Name);
 
         if (targetMethodOnProperties == null) return;
 
