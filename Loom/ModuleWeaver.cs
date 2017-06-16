@@ -347,7 +347,7 @@ public class ModuleWeaver
         if (method.Parameters.Count == 0)
             throw new Exception($"Property delegation method {method.Name} lacks the index parameter on the mixin.");
 
-        if (method.Parameters[0].ParameterType != ModuleDefinition.TypeSystem.Int32)
+        if (method.Parameters[0].ParameterType.FullName != "System.Int32")
             throw new Exception($"Property delegation method {method.Name} is expected to have Int32 as its first parameter on the mixin, but got {method.Parameters[0].ParameterType} instead.");
 
         // Those checks are more sophisticated than I thought: We're not checking against the concrete types but template parameter types.
