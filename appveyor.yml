@@ -1,6 +1,6 @@
 # This is the only place where a version is configured. The NuGet package
 # will get its version from this, without the "-b{build}" suffix.
-version: 0.2.0-b{build}
+version: 0.3.0-b{build}
 image: Visual Studio 2017
 before_build:
 - nuget restore
