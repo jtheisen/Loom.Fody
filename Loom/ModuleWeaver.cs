@@ -71,16 +71,16 @@ public class ModuleWeaver
 
         public TypeReference GetAccessorInterface(ModuleDefinition module)
         {
-            if (accessorInterface != null)
+            if (accessorInterfaceCache != null)
             {
-                return accessorInterface;
+                return accessorInterfaceCache;
             }
 
             foreach (var type in module.Types)
             {
                 if (type.Name == "IAccessor`2")
                 {
-                    accessorInterface = type;
+                    accessorInterfaceCache = type;
                     return type;
                 }
             }
@@ -88,7 +88,7 @@ public class ModuleWeaver
             throw new Exception("Can't find type IAccessor`2");
         }
 
-        TypeReference accessorInterface;
+        TypeReference accessorInterfaceCache;
     }
 
     Cache cache;
@@ -265,12 +265,6 @@ public class ModuleWeaver
 
         // This causes the compile to fail with a complaint about "PropertyChangedEventHandler" being external.
         @class.Fields.Add(mixInField);
-
-        // Other methods may also be useful:
-        //foreach (var method in mixInGenericType.Methods)
-        //{
-        //    WeaveDelegate(@class, containerParameter, mixInField, method);
-        //}
 
         foreach (var @event in mixInType.Events)
         {
